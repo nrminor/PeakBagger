@@ -1,0 +1,75 @@
+---
+title: ALPINE Exploratory Data Analysis
+author: Nicholas R. Minor
+jupyter: julia-1.9
+---
+
+This notebook is meant to document and also reproduce the exploratory data analysis we've done on the results from our pipeline [ALPINE](https://github.com/nrminor/ALPINE), which is designed to identify high-interest pathogens in large databases. The notebook will walk readers through this exploratory analysis and both showcase and benefit from the Julia language ecosystem for scientific reproducibility and data visualization.
+
+As far as exploratory data analysis in notebooks go, you may notice this one is a bit unusual: most of the code is absent. Julia is a very fast language, compared to Python and R, but its speed comes from *precompilation*; unlike Python and R, which computers make sense of line by line, Julia can be translated into computer-speak ahead of time. To use a metaphor, the process of reading a piece of Russian literature as a native Engligh speaker is very slow, as the Russian has to be translated into English in realtime. However, reading that same piece of literature after having it translated is much faster. Such is the case with Julia precompilation: the computer can read the code in its native tongue much faster.
+
+This precompilation actually has two benefits: it makes the code run faster, but it also abstracts away some of the complexity of the code itself, leaving behind only the high-level concepts of what's happening. As a result, it's not just the computer who reads the code faster--it's also the reader who reads the notebook faster, undistracted by big blocks of code. Of course, we will have to introduce a few Julia concepts to make sense of the code that remains, but bear with me. I promise it will be relatively painless.
+
+With that introduction out of the way, let's introduce what ALPINE actually does.
+
+
+### Introduction to ALPINE
+ALPINE, an acronym for *Anachronistic Lineage and Persistent INfection Explorer*, is a high-throughput, reproducible pipeline for discovering pathogen sequences with either of the following characteristics:
+1. The pathogen sequence is highly mutated relative to co-occurring pathogen sequences, indicating that it evolved a great deal in ways that more common pathogen variants haven't.
+2. The pathogen hails from a lineage that is no longer circulating, or at least no longer prevalent. The most parsimonious explanation for this "past-their-time" pathogens is that they have persisted in a long infection of an immunocompromised person, though it's also possible that these sequences stem from pathogens that have spilled back from animal reservoirs.
+
+ALPINE generates very rich results, with sequence data and metadata for highly evolved sequences, anachronistic sequences, and sequences that are in the Venn overlap between the two. Rather than digging through these results haphazardly, this notebook is meant to establish a workflow for digging through them. Data visualizations and statistics will be baked in. A manuscript for ALPINE is in preparation now, but we think of this notebook as complementary/serving a different purpose. By going through and running the code in this notebook yourself, you will effectively reproduce not just the results, but also the figures we generated for the manuscript.
+
+### Software requirements
+In addition to the software required to run this notebook, you'll also need two applications installed:
+1. Julia, which you can install at [https://julialang.org/downloads/](https://julialang.org/downloads/)
+2. Docker, which you can install at [https://docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
+
+Once those are installed, you'll be ready to proceed.
+
+### Initial Foray into the Data
+
+First, we activate the environment from this repo and make sure the required packages are installed and the core functions are precompiled.
+
+```{julia}
+using Pkg
+Pkg.activate(".")
+Pkg.instantiate()
+```
+
+Next, let's load some of the libraries we may use in our explorations (all of which are listed and versioned in `Project.toml`).
+
+```{julia}
+using ALPINEExplorer, ErrorTypes, Revise, JuliaFormatter, BenchmarkTools, IJulia
+```
+
+You'll notice we load a module called `ALPINEExplorer`; this is only available because we activated the environment in this directory, where there is, in fact, a project, source code and all, named "ALPINEExplorer". You could not access this module outside the current working directory unless you specified back to this directory in `Pkg.activate()`.
+
+Next, let's specify a variable for the path to our results (be sure to change this to wherever the results are located on your machine!):
+
+```{julia}
+const RESULTS_ROOT::String = "/path/to/results/directory"
+```
+
+You'll notice this is a fancier-than-usual variable. By specifying that it is a constant and providing a data-type (`String`), we're telling the Julia compiler that it doesn't need to double check it every time it comes up downstream. The net result is that it runs much faster.
+
+Next, let's compile a table of mutations to look at and generate some visualizations. First, we generate a dictionary of subdirectory paths, which will be traversed downstream. I use the Julia `ErrorTypes.jl` package here to handle this potentially error-prone process in a Rust-like way. Here, this means that the function `construct_file_paths` will either return a successful dictionary result or an error. The macro `@?` unraps this result, exposing either the error, or the successful dictionary.
+
+```{julia}
+path_dict = @? construct_file_paths(RESULTS_ROOT)
+```
+
+Now, let's take that dictionary and turn it into a true "tree" of directories to traverse. This tree is itself a dictionary, where the keys are all the geographies ALPINE searched, and the values are a data structure listing all the relevant subdirectories for that geography.
+
+```{julia}
+search_tree = define_search_tree(path_dict, RESULTS_ROOT)
+```
+
+Let's now take that search tree and actually use it to search:
+
+```{julia}
+stats_df = @? stats_pipeline(search_tree)
+```
+
+Like before, we use error types to handle errors. You'll notice that function compiled all the relevant stats for each geography, wrote them to an excel file, and also returned the data frame itself so we can continue to look at it.
+

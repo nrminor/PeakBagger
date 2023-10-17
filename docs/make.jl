@@ -1,7 +1,9 @@
 using ALPINEExplorer
 using Documenter
 
-DocMeta.setdocmeta!(ALPINEExplorer, :DocTestSetup, :(using ALPINEExplorer); recursive=true)
+DocMeta.setdocmeta!(
+    ALPINEExplorer, :DocTestSetup, :(using ALPINEExplorer); recursive=true
+)
 
 makedocs(;
     modules=[ALPINEExplorer],
@@ -14,12 +16,7 @@ makedocs(;
         edit_link="main",
         assets=String[],
     ),
-    pages=[
-        "Home" => "index.md",
-    ],
+    pages=["Home" => "index.md"],
 )
 
-deploydocs(;
-    repo="github.com/nrminor/ALPINEExplorer.jl",
-    devbranch="main",
-)
+deploydocs(; repo="github.com/nrminor/ALPINEExplorer.jl", devbranch="main")

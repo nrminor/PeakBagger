@@ -1,7 +1,12 @@
 *.jl.*.cov
 *.jl.cov
 *.jl.mem
+*.tsv
+*.xlsx
 .DS_Store
 ._*
 /docs/Manifest.toml
 /docs/build/
+scratch/
+sandbox/
+dev/

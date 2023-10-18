@@ -40,7 +40,7 @@ Pkg.instantiate()
 Next, let's load some of the libraries we may use in our explorations (all of which are listed and versioned in `Project.toml`).
 
 ```{julia}
-using ALPINEExplorer, ErrorTypes, Revise, JuliaFormatter, BenchmarkTools, IJulia
+using ALPINEExplorer, ErrorTypes, Revise, JuliaFormatter, BenchmarkTools, IJuliaDataToolkit
 ```
 
 You'll notice we load a module called `ALPINEExplorer`; this is only available because we activated the environment in this directory, where there is, in fact, a project, source code and all, named "ALPINEExplorer". You could not access this module outside the current working directory unless you specified back to this directory in `Pkg.activate()`.
@@ -78,3 +78,6 @@ Before we start looking deeper at the data with some stats and visualizations, l
 anachron_arrow, highdist_arrow, double_arrow = make_arrow_databases(search_tree)
 ```
 
+To stay organized, let's add these files to our `DataToolkit` file called `Data.toml`, along with instructions on how to load it:
+```{julia}
+```

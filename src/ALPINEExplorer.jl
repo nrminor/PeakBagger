@@ -316,7 +316,7 @@ function make_arrow_databases(search_tree::Dict{Symbol, SearchBranch})
                     CSV.write("$temp_path/anachron.tsv", _, delim = '\t', append=true)
     
         end
-        Arrow.write(anachron_arrow, CSV.File("$temp_path/anachron.tsv"; delim='\t'))
+        Arrow.write(anachron_arrow, CSV.File("$temp_path/anachron.tsv"; delim='\t'), compress=:zstd)
     end
     
     # Next, the highly evolved/high-distance
@@ -345,7 +345,7 @@ function make_arrow_databases(search_tree::Dict{Symbol, SearchBranch})
                 CSV.write("$temp_path/highdist.tsv", _, delim = '\t', append=true)
     
         end
-        Arrow.write(highdist_arrow, CSV.File("$temp_path/highdist.tsv"; delim='\t'))
+        Arrow.write(highdist_arrow, CSV.File("$temp_path/highdist.tsv"; delim='\t'), compress=:zstd)
     end
     
     # And finally, the double candidates
@@ -374,7 +374,7 @@ function make_arrow_databases(search_tree::Dict{Symbol, SearchBranch})
                 CSV.write("$temp_path/double.tsv", _, delim = '\t', append=true)
     
         end
-        Arrow.write(double_arrow, CSV.File("$temp_path/double.tsv"; delim='\t'))
+        Arrow.write(double_arrow, CSV.File("$temp_path/double.tsv"; delim='\t'), compress=:zstd)
     end
 
     return (anachron_arrow, highdist_arrow, double_arrow)

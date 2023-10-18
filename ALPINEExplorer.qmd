@@ -62,7 +62,7 @@ path_dict = @? construct_file_paths(RESULTS_ROOT)
 Now, let's take that dictionary and turn it into a true "tree" of directories to traverse. This tree is itself a dictionary, where the keys are all the geographies ALPINE searched, and the values are a data structure listing all the relevant subdirectories for that geography.
 
 ```{julia}
-search_tree = define_search_tree(path_dict, RESULTS_ROOT)
+search_tree = define_search_tree(path_dict)
 ```
 
 Let's now take that search tree and actually use it to search:

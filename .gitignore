@@ -3,6 +3,7 @@
 *.jl.mem
 *.tsv
 *.xlsx
+*.arrow
 .DS_Store
 ._*
 /docs/Manifest.toml
@@ -10,3 +11,4 @@
 scratch/
 sandbox/
 dev/
+tmp/

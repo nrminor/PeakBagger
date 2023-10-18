@@ -1,8 +1,8 @@
 module ALPINEExplorer
 
-using DataFrames, CSV, Pipe, ErrorTypes, Glob, ExcelFiles
+using DataFrames, CSV, Pipe, ErrorTypes, Glob, ExcelFiles, Arrow
 
-export construct_file_paths, define_search_tree, stats_pipeline
+export construct_file_paths, define_search_tree, stats_pipeline, make_arrow_databases
 
 """
 The function `construct_file_paths` takes what can be thought of as the Results root directory,
@@ -277,6 +277,101 @@ function stats_pipeline(search_tree::Dict{Symbol, SearchBranch})::Result{DataFra
     
     return Ok(stats_df)
 
+end
+
+"""
+"""
+function make_arrow_databases(search_tree::Dict{Symbol, SearchBranch})
+
+    # First, we'll handle anachronistics
+    anachron_arrow = "anachronistics-meta.arrow"
+    mktempdir() do temp_path
+        ticker = 0
+        for (geo, branch) in search_tree
+    
+            if !isfile("$(branch.anachron)/anachronistic_metadata_only_candidates.tsv")
+                continue
+            end
+    
+            ticker += 1
+    
+            if ticker == 1
+                @pipe CSV.read("$(branch.anachron)/anachronistic_metadata_only_candidates.tsv",
+                            delim='\t', DataFrame) |>
+                    transform(_, :Accession => ByRow(n -> String(geo)) => :Geography) |>
+                    CSV.write("$temp_path/anachron.tsv", _, delim = '\t')
+                continue
+            end
+    
+            @pipe CSV.read("$(branch.anachron)/anachronistic_metadata_only_candidates.tsv",
+                            delim='\t', DataFrame) |>
+                    transform(_, :Accession => ByRow(n -> String(geo)) => :Geography) |>
+                    CSV.write("$temp_path/anachron.tsv", _, delim = '\t', append=true)
+    
+        end
+        Arrow.write(anachron_arrow, CSV.File("$temp_path/anachron.tsv"; delim='\t'))
+    end
+    
+    # Next, the highly evolved/high-distance
+    highdist_arrow = "highdist-meta.arrow"
+    mktempdir() do temp_path
+        ticker = 0
+        for (geo, branch) in search_tree
+    
+            if !isfile("$(branch.highdist)/high_distance_candidates.tsv")
+                continue
+            end
+    
+            ticker += 1
+    
+            if ticker == 1
+                @pipe CSV.read("$(branch.highdist)/high_distance_candidates.tsv",
+                            delim='\t', DataFrame) |>
+                    transform(_, :Accession => ByRow(n -> String(geo)) => :Geography) |>
+                    CSV.write("$temp_path/highdist.tsv", _, delim = '\t')
+                continue
+            end
+    
+            @pipe CSV.read("$(branch.highdist)/high_distance_candidates.tsv",
+                        delim='\t', DataFrame) |>
+                transform(_, :Accession => ByRow(n -> String(geo)) => :Geography) |>
+                CSV.write("$temp_path/highdist.tsv", _, delim = '\t', append=true)
+    
+        end
+        Arrow.write(highdist_arrow, CSV.File("$temp_path/highdist.tsv"; delim='\t'))
+    end
+    
+    # And finally, the double candidates
+    double_arrow = "double-meta.arrow"
+    mktempdir() do temp_path
+        ticker = 0
+        for (geo, branch) in search_tree
+    
+            if !isfile("$(branch.double)/double_candidate_metadata.tsv")
+                continue
+            end
+    
+            ticker += 1
+    
+            if ticker == 1
+                @pipe CSV.read("$(branch.double)/double_candidate_metadata.tsv",
+                            delim='\t', DataFrame) |>
+                    transform(_, :Accession => ByRow(n -> String(geo)) => :Geography) |>
+                    CSV.write("$temp_path/double.tsv", _, delim = '\t')
+                continue
+            end
+    
+            @pipe CSV.read("$(branch.double)/double_candidate_metadata.tsv",
+                        delim='\t', DataFrame) |>
+                transform(_, :Accession => ByRow(n -> String(geo)) => :Geography) |>
+                CSV.write("$temp_path/double.tsv", _, delim = '\t', append=true)
+    
+        end
+        Arrow.write(double_arrow, CSV.File("$temp_path/double.tsv"; delim='\t'))
+    end
+
+    return (anachron_arrow, highdist_arrow, double_arrow)
+    
 end
 
 end

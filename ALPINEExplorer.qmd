@@ -35,6 +35,7 @@ First, we activate the environment from this repo and make sure the required pac
 using Pkg
 Pkg.activate(".")
 Pkg.instantiate()
+Pkg.precompile()
 ```
 
 Next, let's load some of the libraries we may use in our explorations (all of which are listed and versioned in `Project.toml`).
@@ -72,4 +73,9 @@ stats_df = @? stats_pipeline(search_tree)
 ```
 
 Like before, we use error types to handle errors. You'll notice that function compiled all the relevant stats for each geography, wrote them to an excel file, and also returned the data frame itself so we can continue to look at it.
+
+Before we start looking deeper at the data with some stats and visualizations, let's use the search tree to compile databases of metadata for each kind of candidate, which we can then group by geography and query as needed. To do this, we'll blend reading and writing of the files with a conversion to the more efficient Arrow format, which we can then read again later. To do so, we just run the following function on the search tree. The function will return file paths to each database, which we'll have on hand later.
+```{julia}
+anachron_arrow, highdist_arrow, double_arrow = make_arrow_databases(search_tree)
+```
 

@@ -42,6 +42,7 @@ function construct_file_paths(root_dir::String)::Result{Dict{String, String}, Er
     return Ok(geo_paths)
 
 end
+precompile(construct_file_paths, (String,))
 
 """
 Here we define the immutable struct `SearchBranch`, which will store the necessary
@@ -134,6 +135,7 @@ function define_search_tree(path_dict::Dict{String, String})::Dict{Symbol, Searc
     return search_tree
 
 end
+precompile(define_search_tree, (Dict{String, String},))
 
 """
 The function `get_early_count` reads a file of statistics from early in
@@ -154,6 +156,7 @@ function get_early_count(path::Union{String, Missing})
     return count
 
 end
+precompile(get_early_count, (Union{String, Missing},))
 
 """
 The function `get_late_count` reads a file of statistics from early in
@@ -175,6 +178,7 @@ function get_late_count(path::Union{String, Missing})
     return count
 
 end
+precompile(get_late_count, (Union{String, Missing},))
 
 """
 The function `summarize_anachrons` finds the metadata for anachronistic
@@ -193,6 +197,7 @@ function summarize_anachrons(path::Union{String, Missing})
     return nrow(anachron_df)
 
 end
+precompile(summarize_anachrons, (Union{String, Missing},))
 
 """
 The function `summarize_highdist` finds the metadata for high distance
@@ -211,6 +216,7 @@ function summarize_highdist(path::Union{String, Missing})
     return nrow(high_dist_df)
 
 end
+precompile(summarize_highdist, (Union{String, Missing},))
 
 """
 The function `stats_pipeline` makes heavy use of `Pipe.jl` to daisy-chain
@@ -278,6 +284,7 @@ function stats_pipeline(search_tree::Dict{Symbol, SearchBranch})::Result{DataFra
     return Ok(stats_df)
 
 end
+precompile(stats_pipeline, (Dict{Symbol, SearchBranch},))
 
 """
 """
@@ -373,5 +380,6 @@ function make_arrow_databases(search_tree::Dict{Symbol, SearchBranch})
     return (anachron_arrow, highdist_arrow, double_arrow)
     
 end
+precompile(make_arrow_databases, (Dict{Symbol, SearchBranch},))
 
 end

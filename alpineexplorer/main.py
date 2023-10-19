@@ -347,6 +347,66 @@ def stats_pipeline(search_tree: dict[str, SearchBranch]) -> Result[pl.DataFrame,
         ).alias("Double Candidate Rate")
     )
 
+    # count the number of anachronistic lineages
+    stats_df = stats_df.with_columns(
+        pl.Series(
+            "Anachronistic Count",
+            [
+                _summarize_anachrons(branch.anachron)
+                for _, branch in search_tree.items()
+            ],
+        )
+    )
+
+    # compute a percentage of the total inputs that were flagged as anachronistics
+    stats_df = stats_df.with_columns(
+        ((pl.col("Anachronistic Count") / pl.col("Input Sequence Count")) * 100).alias(
+            "Anachronistic Prevalence (%)"
+        )
+    )
+
+    # Compute the rate of anachronistic candidates in a 1 in X format
+    stats_df = stats_df.with_columns(
+        pl.concat_str(
+            [
+                pl.lit("1 in "),
+                (1 / (pl.col("Anachronistic Prevalence (%)") / 100))
+                .floor()
+                .cast(pl.Utf8),
+            ]
+        ).alias("Anachronistic Rate")
+    )
+
+    # get the number of high distance candidates
+    stats_df = stats_df.with_columns(
+        pl.Series(
+            "High Distance Count",
+            [_summarize_highdist(branch.highdist) for _, branch in search_tree.items()],
+        )
+    )
+
+    # compute the percentage of inputs that were high distance
+    stats_df = stats_df.with_columns(
+        ((pl.col("High Distance Count") / pl.col("Input Sequence Count")) * 100).alias(
+            "High Distance Prevalence (%)"
+        )
+    )
+
+    # Compute the rate of high distance candidates in a 1 in X format
+    stats_df = stats_df.with_columns(
+        pl.concat_str(
+            [
+                pl.lit("1 in "),
+                (1 / (pl.col("High Distance Prevalence (%)") / 100))
+                .floor()
+                .cast(pl.Utf8),
+            ]
+        ).alias("High Distance Rate")
+    )
+
+    if stats_df.shape[0] == 0:
+        return Err("No results could be compiled.")
+
     return Ok(stats_df)
 
 

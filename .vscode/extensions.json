@@ -8,6 +8,7 @@
         "ms-python.pylint",
         "ms-python.python",
         "mechatroner.rainbow-csv",
-        "redhat.vscode-yaml"
+        "redhat.vscode-yaml",
+        "grapecity.gc-excelviewer"
     ]
 }

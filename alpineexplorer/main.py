@@ -24,6 +24,7 @@ import os
 import sys
 import glob
 import argparse
+import tempfile
 from typing import Optional, Iterable
 from dataclasses import dataclass
 from result import Result, Ok, Err
@@ -57,6 +58,18 @@ class StarterPaths:
 
     geo: Iterable[str]
     path: Iterable[str]
+
+
+@dataclass
+class CompiledMeta:
+    """
+    This simple dataclass ensures that compiled metadata dataframes are
+    stored in the correct order and unpacked properly.
+    """
+
+    anachron: pl.DataFrame | pl.LazyFrame
+    highdist: pl.DataFrame | pl.LazyFrame
+    double: pl.DataFrame | pl.LazyFrame
 
 
 def parse_command_line_args() -> Result[argparse.Namespace, str]:
@@ -410,6 +423,135 @@ def stats_pipeline(search_tree: dict[str, SearchBranch]) -> Result[pl.DataFrame,
     return Ok(stats_df)
 
 
+def compile_metadata(search_tree: dict[str, SearchBranch]) -> Result[CompiledMeta, str]:
+    """
+        The function `compile_metadata` traverses the search tree and creates a queryable
+        metadata in Polars LazyFrame format. It also saves these databases as compressed
+        Apache Arrow representations, which can be referred to via Polars later.
+
+    Args:
+        - `search_tree: dict[str, SearchBranch]`: The search tree object, which is a
+        dictionary where the keys are the geographies searched, and the values are
+        instances of the `SearchBranch` dataclass containing any relevant results
+        file paths.
+
+    Returns:
+        - `Result[CompiledMeta, str]`: A result type containing either an instance of
+        the `CompiledMeta` dataclass, which stores each data/lazy frame with labels to
+        control unpacking downstream, or an error message string (`Err(str)`).
+    """
+
+    # start with anachronistic candidates
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file_path = os.path.join(temp_dir, "anachron_tmp.tsv")
+        with open(temp_file_path, "w", encoding="utf-8"):
+            pass
+
+        ticker = 0
+        for geo, branch in search_tree.items():
+            meta_path = f"{branch.anachron}/anachronistic_metadata_only_candidates.tsv"
+            if not os.path.isfile(meta_path):
+                continue
+
+            ticker += 1
+
+            if ticker == 1:
+                pl.read_csv(
+                    meta_path,
+                    separator="\t",
+                ).with_columns(
+                    pl.lit(geo).alias("Geography")
+                ).write_csv(temp_file_path, separator="\t")
+                continue
+
+            pl.read_csv(
+                meta_path,
+                separator="\t",
+            ).with_columns(
+                pl.lit(geo).alias("Geography")
+            ).write_csv(temp_file_path, separator="\t", has_header=False)
+
+        pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
+            "anachronistics-meta.arrow", compression="zstd"
+        )
+
+    # next, do high-distance candidates
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file_path = os.path.join(temp_dir, "highdist_tmp.tsv")
+        with open(temp_file_path, "w", encoding="utf-8"):
+            pass
+
+        ticker = 0
+        for geo, branch in search_tree.items():
+            meta_path = f"{branch.highdist}/high_distance_candidates.tsv"
+            if not os.path.isfile(meta_path):
+                continue
+
+            ticker += 1
+
+            if ticker == 1:
+                pl.read_csv(
+                    meta_path,
+                    separator="\t",
+                ).with_columns(
+                    pl.lit(geo).alias("Geography")
+                ).write_csv(temp_file_path, separator="\t")
+                continue
+
+            pl.read_csv(
+                meta_path,
+                separator="\t",
+            ).with_columns(
+                pl.lit(geo).alias("Geography")
+            ).write_csv(temp_file_path, separator="\t", has_header=False)
+
+        pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
+            "highdist-meta.arrow", compression="zstd"
+        )
+
+    # and finally, double candidagtes
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file_path = os.path.join(temp_dir, "double_tmp.tsv")
+        with open(temp_file_path, "w", encoding="utf-8"):
+            pass
+
+        ticker = 0
+        for geo, branch in search_tree.items():
+            meta_path = f"{branch.double}/double_candidate_metadata.tsv"
+            if not os.path.isfile(meta_path):
+                continue
+
+            ticker += 1
+
+            if ticker == 1:
+                pl.read_csv(
+                    meta_path,
+                    separator="\t",
+                ).with_columns(
+                    pl.lit(geo).alias("Geography")
+                ).write_csv(temp_file_path, separator="\t")
+                continue
+
+            pl.read_csv(
+                meta_path,
+                separator="\t",
+            ).with_columns(
+                pl.lit(geo).alias("Geography")
+            ).write_csv(temp_file_path, separator="\t", has_header=False)
+
+        pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
+            "double-meta.arrow", compression="zstd"
+        )
+
+    return Ok(
+        CompiledMeta(
+            anachron=pl.scan_ipc("anachronistics-meta.arrow"),
+            highdist=pl.scan_ipc("highdist-meta.arrow"),
+            double=pl.scan_ipc("double-meta.arrow"),
+        )
+    )
+
+
 def main() -> None:
     """
         Main daisy-chains the above functions and controls the flow of
@@ -468,6 +610,19 @@ def main() -> None:
                      {message}"
             )
     stats_df.write_excel("alpine_run_statistics.xlsx", autofit=True)
+
+    # compile all metadata for all geographies so that it is queryable downstream
+    meta_result = compile_metadata(search_tree)
+    match meta_result:
+        case Ok(compiled):
+            _anachron_meta = compiled.anachron
+            _highdist_meta = compiled.highdist
+            _double_meta = compiled.double
+        case Err(message):
+            sys.exit(
+                f"Error encountered while compiling metadata for candidates:\n\
+                     {message}"
+            )
 
 
 if __name__ == "__main__":

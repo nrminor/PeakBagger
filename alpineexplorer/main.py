@@ -1,12 +1,26 @@
 #!/usr/bin/env python3
 
 """
-Placeholder script
+ALPINE Explorer is a Python module specifying functions and classes for summarizing
+results from one or many [ALPINE](https://github.com/nrminor/ALPINE) runs. This functions
+can be run via the script itself, like so:
+
+```
+poetry shell
+python3 alpineexplorer/main.py ~/path/to/results
+```
+
+They can also be accessed in a Jupyter or Quarto notebook with the following:
+```
+import alpineexplorer
+```
 """
 
+import os
 import sys
 import glob
-from typing import Optional
+import argparse
+from typing import Optional, Iterable
 from dataclasses import dataclass
 from result import Result, Ok, Err
 import polars as pl
@@ -15,7 +29,7 @@ import polars as pl
 @dataclass
 class SearchBranch:
     """
-    Search branch contains the necessary file paths for each geography
+    Dataclass `SearchBranch` contains the necessary file paths for each geography
     within the broader search tree.
     """
 
@@ -28,29 +42,112 @@ class SearchBranch:
     late_stats: Optional[str]
 
 
-def construct_file_paths(result_root: str) -> Result[dict[str, str], str]:
+@dataclass
+class StarterPaths:
     """
-    More to come soon. This function is just a placeholder.
+    Dataclass `StarterPaths` contains iterables of geography names
+    and the corresponding results paths. These iterables are used to
+    construct a multi-level search tree of directories containing ALPINE
+    results.
     """
 
-    tmp_dict = dict({f"{result_root}": "Hello, world!"})
+    geo: Iterable[str]
+    path: Iterable[str]
 
-    if len(tmp_dict) == 0:
+
+def parse_command_line_args() -> Result[argparse.Namespace, str]:
+    """
+        Parses command line arguments, defaulting to the current working directory.
+
+    Args:
+        `None`
+
+    Returns:
+        `Result[argparse.Namespace, str]`: Returns `Ok(argparse.Namespace)` if args could
+        be parsed, else returns `Err(str)`.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--results_dir",
+        "-d",
+        type=str,
+        required=False,
+        default=".",
+        help="The directory to search within.",
+    )
+    args = parser.parse_args()
+
+    return Ok(args)
+
+
+def _clean_string(subdir_name: str) -> str:
+    """
+        Helper function that takes an ALPINE result subdirectory, removes 
+        dataset-specific prefixes, and replaces underscores with spaces to
+        get a clean geography name.
+
+    Parameters:
+        - `subdir_name (str)`: The subdirectory to clean.
+
+    Returns:
+        - `str`: The cleaned subdirectory.
+    """
+
+    return (
+        subdir_name.replace("LocalDataset_", "")
+        .replace("GISAID_", "")
+        .replace("GenBank_", "")
+        .replace("_", " ")
+    )
+
+
+def construct_file_paths(result_root: str) -> Result[StarterPaths, str]:
+    """
+    The function `construct_file_paths()` looks in the results directory
+    provided by the user and parses out the results directories for each
+    geography. It also parses the names the geographies, and uses them
+    as keys in a dictionary to be iterated through downstream.
+    """
+
+    paths = [
+        dir
+        for dir in os.listdir(result_root)
+        if os.path.isdir(os.path.join(result_root, dir))
+    ]
+    if len(paths) == 0:
         return Err("No subdirectories found in provided results directory.")
 
-    return Ok(tmp_dict)
+    geos = [_clean_string(path) for path in paths]
+
+    starter_paths = StarterPaths(geo=geos, path=paths)
+
+    return Ok(starter_paths)
 
 
 def define_search_tree(
-    path_dict: dict[str, str]
+    start_paths: StarterPaths,
 ) -> Result[dict[str, SearchBranch], str]:
     """
-    More to come soon. This function is just a placeholder.
+        The function `define_search_tree()` iterates through the initial dictionary
+        of geographies provided by `construct_file_paths()` and constructs each
+        "branch" of the search tree. These branches contain all of the available
+        results files to be assessed or None if a particular file was not
+        generated.
+
+    Args:
+        `path_dict: dict[str, str]`: A dictionary where the keys are each geography
+        searched by ALPINE, and the values are the file path corresponding each
+        geography's results.
+
+    Returns:
+        `Result[dict[str, SearchBranch], str]`: A Result type containing either a
+        search tree object (`Ok(dict[str, SearchBranch)`) or an error string
+        (`Err(str)`)
     """
 
     search_tree = {}
 
-    for geo, path in path_dict.items():
+    for geo, path in zip(start_paths.geo, start_paths.path):
         double = glob.glob(f"{path}/*double_candidates")
         anachron = glob.glob(f"{path}/*metadata_candidates")
         highdist = glob.glob(f"{path}/*high_distance_clusters")
@@ -72,10 +169,17 @@ def define_search_tree(
 
 def get_early_count(path: Optional[str]) -> Optional[int]:
     """
-    The function `get_early_count` reads a file of statistics from early in
-    the pipeline meant to describe the number of input sequences. `get_early_count`
-    does so for each geography independently so that a dataframe of statistics
-    can be generated in a vectorized manner.
+        The function `get_early_count()` reads a file of statistics from early in
+        the pipeline meant to describe the number of input sequences. `get_early_count()`
+        does so for each geography independently so that a dataframe of statistics
+        can be generated in a vectorized manner.
+
+    Args:
+        `path: Optional[str]`: Either a string specifying a path to read from or `None`.
+
+    Returns:
+        `Optional[int]`: Either an integer specifying the number of input sequences for
+        a geography, or `None`.
     """
 
     if path is None:
@@ -92,11 +196,18 @@ def get_early_count(path: Optional[str]) -> Optional[int]:
 
 def get_late_count(path: Optional[str]) -> Optional[int]:
     """
-    The function `get_late_count` reads a file of statistics from the end of
-    the pipeline meant to describe the number of double candidate sequences,
-    which is to say sequences from viral lineages that are both highly evolved
-    and anachronistic. `get_late_count` does so for each geography independently
-    so that a dataframe of statistics can be generated in a vectorized manner.
+        The function `get_late_count` reads a file of statistics from the end of
+        the pipeline meant to describe the number of double candidate sequences,
+        which is to say sequences from viral lineages that are both highly evolved
+        and anachronistic. `get_late_count` does so for each geography independently
+        so that a dataframe of statistics can be generated in a vectorized manner.
+
+    Args:
+        `path: Optional[str]`: Either a string specifying a path to read from or `None`.
+
+    Returns:
+        `Optional[int]`: Either an integer specifying the number of input sequences for
+        a geography, or `None`.
     """
 
     # propagate None if that is the input
@@ -114,9 +225,16 @@ def get_late_count(path: Optional[str]) -> Optional[int]:
 
 def summarize_anachrons(path: Optional[str]) -> Optional[int]:
     """
-    The function `summarize_anachrons` finds the metadata for anachronistic
-    sequences and counts the number of entries, if any, for the provided
-    geography and associated filepath.
+        The function `summarize_anachrons` finds the metadata for anachronistic
+        sequences and counts the number of entries, if any, for the provided
+        geography and associated filepath.
+
+    Args:
+        `path: Optional[str]`: Either a string specifying a path to read from or `None`.
+
+    Returns:
+        `Optional[int]`: Either an integer specifying the number of input sequences for
+        a geography, or `None`.
     """
 
     # propagate None if that is the input
@@ -135,9 +253,16 @@ def summarize_anachrons(path: Optional[str]) -> Optional[int]:
 
 def summarize_highdist(path: Optional[str]) -> Optional[int]:
     """
-    The function `summarize_highdist` finds the metadata for high distance
-    sequences and counts the number of entries, if any, for the provided
-    geography and associated filepath.
+        The function `summarize_highdist` finds the metadata for high distance
+        sequences and counts the number of entries, if any, for the provided
+        geography and associated filepath.
+
+    Args:
+        `path: Optional[str]`: Either a string specifying a path to read from or `None`.
+
+    Returns:
+        `Optional[int]`: Either an integer specifying the number of input sequences for
+        a geography, or `None`.
     """
 
     # propagate None if that is the input
@@ -156,20 +281,39 @@ def summarize_highdist(path: Optional[str]) -> Optional[int]:
 
 def main() -> None:
     """
-    More to come soon. This script is just a placeholder.
+        Main daisy-chains the above functions and controls the flow of
+        data through them if this script is run on its own in the command
+        line.
+
+    Args:
+        None
+
+    Returns:
+        None
     """
 
-    message_result = construct_file_paths(".")
+    # collect a result directory from the command line, defaulting to the
+    # current working directory
+    args = parse_command_line_args().expect("Unable to access filesystem.")
+
+    # make sure the provided directory exists, and if not, exit the program
+    assert os.path.exists(args.result_dir) and os.path.isdir(
+        args.result_dir
+    ), "Provided file path does not exist or is not a directory."
+
+    # construct an initial dictionary of the geographies and top-level
+    # per-geography directories to be searched while handling any errors.
+    message_result = construct_file_paths(args.result_dir)
     match message_result:
         case Ok(result):
-            message = result["."]
+            search_tree = result
         case Err(message):
             sys.exit(
                 f"Error originated while constructing file paths:\n\
                      {message}"
             )
 
-    print(f"{result}")
+    print(f"{search_tree}")
 
 
 if __name__ == "__main__":

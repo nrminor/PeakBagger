@@ -27,6 +27,7 @@ Once those are installed, you'll be ready to proceed.
 First, we activate the environment from this repo and make sure the required packages are installed and the core functions are precompiled.
 
 ```{python}
+import alpineexplorer
 ```
 
 Next, let's load some of the libraries we may use in our explorations (all of which are listed and versioned in `Project.toml`).

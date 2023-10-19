@@ -1,6 +1,13 @@
 {
     "recommendations": [
         "quarto.quarto",
-        "julialang.language-julia"
+        "ms-python.autopep8",
+        "ms-azuretools.vscode-docker",
+        "github.vscode-github-actions",
+        "ms-python.vscode-pylance",
+        "ms-python.pylint",
+        "ms-python.python",
+        "mechatroner.rainbow-csv",
+        "redhat.vscode-yaml"
     ]
 }

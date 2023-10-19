@@ -1,4 +1,0 @@
-data_config_version = 0
-uuid = "69d7a2df-a5d9-451f-a2c8-4e23e99e6974"
-name = "ALPINEExplorer"
-plugins = ["store", "defaults", "memorise"]

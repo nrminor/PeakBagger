@@ -423,6 +423,54 @@ def stats_pipeline(search_tree: dict[str, SearchBranch]) -> Result[pl.DataFrame,
     return Ok(stats_df)
 
 
+def _search_tree_meta(
+    search_tree: dict[str, SearchBranch],
+    branch_name: str,
+    filename: str,
+    output_name: str,
+) -> None:
+    """
+        `_search_tree_meta` is a private helper function that iterates through the search
+        tree, reads, and converts metadata to produce one Arrow-formatted table.
+
+    Args:
+        - `search_tree: dict[str, SearchBranch]`: A dictionary containing each geography
+        as its keys, and a `SearchBranch` dataclass instance specifying the paths to
+        traverse as its values.
+        - `branch_name: str`: The name of the branch to select at each `SearchBranch`.
+        - `filename: str`: The name of the file expected in the search directories.
+        - `output_name: str`: An output name for the Arrow file.
+
+    Returns:
+        None
+    """
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file_path = os.path.join(temp_dir, "tmp.tsv")
+        with open(temp_file_path, "w", encoding="utf-8"):
+            pass
+
+        ticker = 0
+        for geo, branch in search_tree.items():
+            meta_path = f"{getattr(branch, branch_name)}/{filename}"
+            if not os.path.isfile(meta_path):
+                continue
+
+            ticker += 1
+            header = bool(ticker == 1)
+
+            pl.read_csv(
+                meta_path,
+                separator="\t",
+            ).with_columns(
+                pl.lit(geo).alias("Geography")
+            ).write_csv(temp_file_path, separator="\t", has_header=header)
+
+        pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
+            output_name, compression="zstd"
+        )
+
+
 def compile_metadata(search_tree: dict[str, SearchBranch]) -> Result[CompiledMeta, str]:
     """
         The function `compile_metadata` traverses the search tree and creates a queryable
@@ -442,106 +490,22 @@ def compile_metadata(search_tree: dict[str, SearchBranch]) -> Result[CompiledMet
     """
 
     # start with anachronistic candidates
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_file_path = os.path.join(temp_dir, "anachron_tmp.tsv")
-        with open(temp_file_path, "w", encoding="utf-8"):
-            pass
-
-        ticker = 0
-        for geo, branch in search_tree.items():
-            meta_path = f"{branch.anachron}/anachronistic_metadata_only_candidates.tsv"
-            if not os.path.isfile(meta_path):
-                continue
-
-            ticker += 1
-
-            if ticker == 1:
-                pl.read_csv(
-                    meta_path,
-                    separator="\t",
-                ).with_columns(
-                    pl.lit(geo).alias("Geography")
-                ).write_csv(temp_file_path, separator="\t")
-                continue
-
-            pl.read_csv(
-                meta_path,
-                separator="\t",
-            ).with_columns(
-                pl.lit(geo).alias("Geography")
-            ).write_csv(temp_file_path, separator="\t", has_header=False)
-
-        pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
-            "anachronistics-meta.arrow", compression="zstd"
-        )
+    _search_tree_meta(
+        search_tree,
+        "anachron",
+        "anachronistic_metadata_only_candidates.tsv",
+        "anachronistics-meta.arrow",
+    )
 
     # next, do high-distance candidates
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_file_path = os.path.join(temp_dir, "highdist_tmp.tsv")
-        with open(temp_file_path, "w", encoding="utf-8"):
-            pass
-
-        ticker = 0
-        for geo, branch in search_tree.items():
-            meta_path = f"{branch.highdist}/high_distance_candidates.tsv"
-            if not os.path.isfile(meta_path):
-                continue
-
-            ticker += 1
-
-            if ticker == 1:
-                pl.read_csv(
-                    meta_path,
-                    separator="\t",
-                ).with_columns(
-                    pl.lit(geo).alias("Geography")
-                ).write_csv(temp_file_path, separator="\t")
-                continue
-
-            pl.read_csv(
-                meta_path,
-                separator="\t",
-            ).with_columns(
-                pl.lit(geo).alias("Geography")
-            ).write_csv(temp_file_path, separator="\t", has_header=False)
-
-        pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
-            "highdist-meta.arrow", compression="zstd"
-        )
+    _search_tree_meta(
+        search_tree, "highdist", "high_distance_candidates.tsv", "highdist-meta.arrow"
+    )
 
     # and finally, double candidagtes
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_file_path = os.path.join(temp_dir, "double_tmp.tsv")
-        with open(temp_file_path, "w", encoding="utf-8"):
-            pass
-
-        ticker = 0
-        for geo, branch in search_tree.items():
-            meta_path = f"{branch.double}/double_candidate_metadata.tsv"
-            if not os.path.isfile(meta_path):
-                continue
-
-            ticker += 1
-
-            if ticker == 1:
-                pl.read_csv(
-                    meta_path,
-                    separator="\t",
-                ).with_columns(
-                    pl.lit(geo).alias("Geography")
-                ).write_csv(temp_file_path, separator="\t")
-                continue
-
-            pl.read_csv(
-                meta_path,
-                separator="\t",
-            ).with_columns(
-                pl.lit(geo).alias("Geography")
-            ).write_csv(temp_file_path, separator="\t", has_header=False)
-
-        pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
-            "double-meta.arrow", compression="zstd"
-        )
+    _search_tree_meta(
+        search_tree, "double", "double_candidate_metadata.tsv", "double-meta.arrow"
+    )
 
     return Ok(
         CompiledMeta(

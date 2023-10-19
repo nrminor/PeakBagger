@@ -469,9 +469,9 @@ def _search_tree_meta(
                 ).write_csv(tmp, separator="\t", has_header=header)
 
         if ticker > 0:
-            pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
-                output_name, compression="zstd"
-            )
+            pl.scan_csv(
+                temp_file_path, separator="\t", infer_schema_length=250
+            ).sink_ipc(output_name, compression="zstd")
 
 
 def compile_metadata(search_tree: dict[str, SearchBranch]) -> Result[CompiledMeta, str]:

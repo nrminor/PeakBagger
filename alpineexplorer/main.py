@@ -82,7 +82,7 @@ def parse_command_line_args() -> Result[argparse.Namespace, str]:
 
 def _clean_string(subdir_name: str) -> str:
     """
-        Helper function that takes an ALPINE result subdirectory, removes 
+        Helper function that takes an ALPINE result subdirectory, removes
         dataset-specific prefixes, and replaces underscores with spaces to
         get a clean geography name.
 
@@ -109,15 +109,16 @@ def construct_file_paths(result_root: str) -> Result[StarterPaths, str]:
     as keys in a dictionary to be iterated through downstream.
     """
 
-    paths = [
+    subdirs = [
         dir
         for dir in os.listdir(result_root)
         if os.path.isdir(os.path.join(result_root, dir))
     ]
-    if len(paths) == 0:
+    if len(subdirs) == 0:
         return Err("No subdirectories found in provided results directory.")
 
-    geos = [_clean_string(path) for path in paths]
+    geos = [_clean_string(path) for path in subdirs]
+    paths = [os.path.join(result_root, dir) for dir in subdirs]
 
     starter_paths = StarterPaths(geo=geos, path=paths)
 
@@ -297,24 +298,33 @@ def main() -> None:
     args = parse_command_line_args().expect("Unable to access filesystem.")
 
     # make sure the provided directory exists, and if not, exit the program
-    assert os.path.exists(args.result_dir) and os.path.isdir(
-        args.result_dir
+    assert os.path.exists(args.results_dir) and os.path.isdir(
+        args.results_dir
     ), "Provided file path does not exist or is not a directory."
 
     # construct an initial dictionary of the geographies and top-level
     # per-geography directories to be searched while handling any errors.
-    message_result = construct_file_paths(args.result_dir)
+    message_result = construct_file_paths(args.results_dir)
     match message_result:
-        case Ok(result):
-            search_tree = result
+        case Ok(starter_paths):
+            pass
         case Err(message):
             sys.exit(
                 f"Error originated while constructing file paths:\n\
                      {message}"
             )
 
-    print(f"{search_tree}")
+    tree_result = define_search_tree(starter_paths)
+    match tree_result:
+        case Ok(search_tree):
+            pass
+        case Err(message):
+            sys.exit(
+                f"Unable to search through provided results directories:\n\
+                     {message}"
+            )
 
+    print(f"{search_tree}")
 
 if __name__ == "__main__":
     main()

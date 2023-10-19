@@ -5,6 +5,8 @@ description = ""
 license = "MIT"
 authors = ["Nicholas Minor <nrminor@wisc.edu>"]
 readme = "README.md"
+repository = "https://github.com/nrminor/ALPINEExplorer"
+keywords = ["data visualization", "data analysis", "data science"]
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.13"
@@ -16,6 +18,10 @@ seaborn = "^0.13.0"
 pyarrow = "^13.0.0"
 black = "^23.10.0"
 pdoc = "^14.1.0"
+nbformat = "^5.9.2"
+pandas = "^2.1.1"
+jupyter = "^1.0.0"
+ipykernel = "^6.25.2"
 
 
 [build-system]

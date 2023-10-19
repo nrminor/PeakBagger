@@ -1,7 +1,9 @@
 ---
 title: ALPINE Exploratory Data Analysis
 author: Nicholas R. Minor
-jupyter: python-3.11
+format: html
+editor: visual
+jupyter: python3
 ---
 
 This notebook is meant to document and also reproduce the exploratory data analysis we've done on the results from our pipeline [ALPINE](https://github.com/nrminor/ALPINE), which is designed to identify high-interest pathogens in large databases. The notebook will walk readers through this exploratory analysis, data visualizations, and statistics at a more relaxed pace than our upcoming manuscript.
@@ -17,22 +19,33 @@ ALPINE generates very rich results, with sequence data and metadata for highly e
 
 ### Software requirements
 In addition to the software required to run this notebook, you'll also need two applications installed:
-1. 
-2. 
+1. Poetry, which is an excellent Python environment manager. [You can read more and install it here.](https://python-poetry.org/docs/)
+2. At least Python 3.10. `alpineexplorer` uses structural pattern matching (`match`-`case` blocks) to handle errors, a feature which was only introduced in Python 3.10. That said, we recommend users upgrade to 3.11 if possible.
+3. Docker, which we use for some intermediate analyses with [Usher](https://usher-wiki.readthedocs.io/en/latest/UShER.html) and [NextClade](https://docs.nextstrain.org/projects/nextclade/en/latest/index.html)
 
 Once those are installed, you'll be ready to proceed.
 
 ### Initial Foray into the Data
 
-First, we activate the environment from this repo and make sure the required packages are installed and the core functions are precompiled.
+First, we make sure the packages required by this repo are installed and the core functions are in place.
 
 ```{python}
+!poetry install
 import alpineexplorer
 ```
 
-Next, let's load some of the libraries we may use in our explorations (all of which are listed and versioned in `Project.toml`).
+Next, let's load some of the libraries we may use in our explorations (all of which are listed and versioned in `pyproject.toml`). These are only available because Poetry handled the installations above.
 
 ```{python}
+import os
+import sys
+import glob
+from result import Result, Ok, Err
+import polars as pl
+import matplotlib
+import seaborn
+import scipy
+import numpy
 ```
 
 You'll notice we load a module called `ALPINEExplorer`; this is only available because we activated the environment in this directory, where there is, in fact, a project, source code and all, named "ALPINEExplorer". You could not access this module outside the current working directory unless you specified back to this directory in `Pkg.activate()`.
@@ -40,6 +53,7 @@ You'll notice we load a module called `ALPINEExplorer`; this is only available b
 Next, let's specify a variable for the path to our results (be sure to change this to wherever the results are located on your machine!):
 
 ```{python}
+RESULTS_DIR="/path/to/results"
 ```
 
 You'll notice this is a fancier-than-usual variable. By specifying that it is a constant and providing a data-type (`String`), we're telling the Julia compiler that it doesn't need to double check it every time it comes up downstream. The net result is that it runs much faster.

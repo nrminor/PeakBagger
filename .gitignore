@@ -1,13 +1,10 @@
-*.jl.*.cov
-*.jl.cov
-*.jl.mem
 *.tsv
 *.xlsx
 *.arrow
 .DS_Store
 ._*
-/docs/Manifest.toml
-/docs/build/
+.Rhistory
+.RData
 scratch/
 sandbox/
 dev/

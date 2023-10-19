@@ -85,7 +85,7 @@ def get_early_count(path: Optional[str]) -> Optional[int]:
     stats_df = pl.read_csv(path, separator="\t")
 
     # Get the count from the first row of the 'num_seqs' column
-    count = stats_df.select(pl.col("num_seqs")).to_series().to_list()[0]
+    count = stats_df.select(pl.col(["num_seqs"])).to_series().to_list()[0]
 
     return count
 
@@ -107,7 +107,7 @@ def get_late_count(path: Optional[str]) -> Optional[int]:
     stats_df = pl.read_csv(path, separator="\t")
 
     # Get the count from the first row of the 'num_seqs' column
-    count = stats_df.select(pl.col("num_seqs")).to_series().to_list()[0]
+    count = stats_df.select(pl.col(["num_seqs"])).to_series().to_list()[0]
 
     return count
 

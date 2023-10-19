@@ -11,12 +11,14 @@ from dataclasses import dataclass
 from result import Result, Ok, Err
 import polars as pl
 
+
 @dataclass
 class SearchBranch:
     """
     Search branch contains the necessary file paths for each geography
     within the broader search tree.
     """
+
     parent_dir: str
     geography: str
     double: Optional[str]
@@ -38,7 +40,10 @@ def construct_file_paths(result_root: str) -> Result[dict[str, str], str]:
 
     return Ok(tmp_dict)
 
-def define_search_tree(path_dict: dict[str, str]) -> Result[dict[str, SearchBranch], str]:
+
+def define_search_tree(
+    path_dict: dict[str, str]
+) -> Result[dict[str, SearchBranch], str]:
     """
     More to come soon. This function is just a placeholder.
     """
@@ -59,10 +64,11 @@ def define_search_tree(path_dict: dict[str, str]) -> Result[dict[str, SearchBran
             anachron=anachron[0] if anachron else None,
             highdist=highdist[0] if highdist else None,
             early_stats=early_stats[0] if early_stats else None,
-            late_stats=late_stats[0] if late_stats else None
+            late_stats=late_stats[0] if late_stats else None,
         )
 
     return Ok(search_tree)
+
 
 def get_early_count(path: Optional[str]) -> Optional[int]:
     """
@@ -76,18 +82,19 @@ def get_early_count(path: Optional[str]) -> Optional[int]:
         return None
 
     # Read the TSV file into a DataFrame
-    stats_df = pl.read_csv(path, separator='\t')
+    stats_df = pl.read_csv(path, separator="\t")
 
     # Get the count from the first row of the 'num_seqs' column
     count = stats_df.select(pl.col("num_seqs")).to_series().to_list()[0]
 
     return count
 
+
 def get_late_count(path: Optional[str]) -> Optional[int]:
     """
     The function `get_late_count` reads a file of statistics from the end of
     the pipeline meant to describe the number of double candidate sequences,
-    which is to say sequences from viral lineages that are both highly evolved 
+    which is to say sequences from viral lineages that are both highly evolved
     and anachronistic. `get_late_count` does so for each geography independently
     so that a dataframe of statistics can be generated in a vectorized manner.
     """
@@ -97,12 +104,13 @@ def get_late_count(path: Optional[str]) -> Optional[int]:
         return None
 
     # Read the TSV file into a DataFrame
-    stats_df = pl.read_csv(path, separator='\t')
+    stats_df = pl.read_csv(path, separator="\t")
 
     # Get the count from the first row of the 'num_seqs' column
     count = stats_df.select(pl.col("num_seqs")).to_series().to_list()[0]
 
     return count
+
 
 def summarize_anachrons(path: Optional[str]) -> Optional[int]:
     """
@@ -119,10 +127,11 @@ def summarize_anachrons(path: Optional[str]) -> Optional[int]:
     file_path = f"{path}/anachronistic_metadata_only_candidates.tsv"
 
     # Read the TSV file into a DataFrame
-    anachron_df = pl.read_csv(file_path, separator='\t')
+    anachron_df = pl.read_csv(file_path, separator="\t")
 
     # Return the number of rows in the DataFrame
     return anachron_df.shape[0]
+
 
 def summarize_highdist(path: Optional[str]) -> Optional[int]:
     """
@@ -139,10 +148,11 @@ def summarize_highdist(path: Optional[str]) -> Optional[int]:
     file_path = f"{path}/high_distance_candidates.tsv"
 
     # Read the TSV file into a DataFrame
-    anachron_df = pl.read_csv(file_path, separator='\t')
+    anachron_df = pl.read_csv(file_path, separator="\t")
 
     # Return the number of rows in the DataFrame
     return anachron_df.shape[0]
+
 
 def main() -> None:
     """
@@ -154,10 +164,13 @@ def main() -> None:
         case Ok(result):
             message = result["."]
         case Err(message):
-            sys.exit(f"Error originated while constructing file paths:\n\
-                     {message}")
+            sys.exit(
+                f"Error originated while constructing file paths:\n\
+                     {message}"
+            )
 
     print(f"{result}")
+
 
 if __name__ == "__main__":
     main()

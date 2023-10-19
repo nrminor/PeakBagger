@@ -337,8 +337,13 @@ def stats_pipeline(search_tree: dict[str, SearchBranch]) -> Result[pl.DataFrame,
 
     # Compute the rate of double candidates in a 1 in X format
     stats_df = stats_df.with_columns(
-        (
-            pl.lit("1 in ")
+        pl.concat_str(
+            [
+                pl.lit("1 in "),
+                (1 / (pl.col("Double Candidate Prevalence (%)") / 100))
+                .floor()
+                .cast(pl.Utf8),
+            ]
         ).alias("Double Candidate Rate")
     )
 

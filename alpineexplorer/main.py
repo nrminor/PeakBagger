@@ -447,8 +447,6 @@ def _search_tree_meta(
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file_path = os.path.join(temp_dir, "tmp.tsv")
-        with open(temp_file_path, "w", encoding="utf-8"):
-            pass
 
         ticker = 0
         for geo, branch in search_tree.items():
@@ -457,16 +455,20 @@ def _search_tree_meta(
                 continue
 
             ticker += 1
+            write_mode = "a"
             header = bool(ticker == 1)
+            if header:
+                write_mode = "w"
 
-            pl.read_csv(
-                meta_path,
-                separator="\t",
-            ).with_columns(
-                pl.lit(geo).alias("Geography")
-            ).write_csv(temp_file_path, separator="\t", has_header=header)
+            with open(temp_file_path, write_mode, encoding="utf-8") as tmp:
+                pl.read_csv(
+                    meta_path,
+                    separator="\t",
+                ).with_columns(
+                    pl.lit(geo).alias("Geography")
+                ).write_csv(tmp, separator="\t", has_header=header)
 
-        if not ticker == 0:
+        if ticker > 0:
             pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
                 output_name, compression="zstd"
             )

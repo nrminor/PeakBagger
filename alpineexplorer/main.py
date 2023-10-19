@@ -466,9 +466,10 @@ def _search_tree_meta(
                 pl.lit(geo).alias("Geography")
             ).write_csv(temp_file_path, separator="\t", has_header=header)
 
-        pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
-            output_name, compression="zstd"
-        )
+        if not ticker == 0:
+            pl.scan_csv(temp_file_path, separator="\t").sink_ipc(
+                output_name, compression="zstd"
+            )
 
 
 def compile_metadata(search_tree: dict[str, SearchBranch]) -> Result[CompiledMeta, str]:

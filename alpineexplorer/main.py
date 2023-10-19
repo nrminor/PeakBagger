@@ -6,6 +6,7 @@ results from one or many [ALPINE](https://github.com/nrminor/ALPINE) runs. This 
 can be run via the script itself, like so:
 
 ```
+poetry install
 poetry shell
 python3 alpineexplorer/main.py ~/path/to/results
 ```
@@ -14,6 +15,9 @@ They can also be accessed in a Jupyter or Quarto notebook with the following:
 ```
 import alpineexplorer
 ```
+
+We recommend users access these functions via the Quarto notebook `ALPINEExplorer.qmd`
+provided in this repository.
 """
 
 import os
@@ -60,10 +64,10 @@ def parse_command_line_args() -> Result[argparse.Namespace, str]:
         Parses command line arguments, defaulting to the current working directory.
 
     Args:
-        `None`
+        - `None`
 
     Returns:
-        `Result[argparse.Namespace, str]`: Returns `Ok(argparse.Namespace)` if args could
+        - `Result[argparse.Namespace, str]`: Returns `Ok(argparse.Namespace)` if args could
         be parsed, else returns `Err(str)`.
     """
     parser = argparse.ArgumentParser()
@@ -103,10 +107,17 @@ def _clean_string(subdir_name: str) -> str:
 
 def construct_file_paths(result_root: str) -> Result[StarterPaths, str]:
     """
-    The function `construct_file_paths()` looks in the results directory
-    provided by the user and parses out the results directories for each
-    geography. It also parses the names the geographies, and uses them
-    as keys in a dictionary to be iterated through downstream.
+        The function `construct_file_paths()` looks in the results directory
+        provided by the user and parses out the results directories for each
+        geography. It also parses the names the geographies, and uses them
+        as keys in a dictionary to be iterated through downstream.
+
+    Args:
+        - `result_root: str`: the "results root" directory to search within.
+        This is typically a directory named with a YYYYMMDD-formatted date.
+    Returns:
+        - `Result[StarterPaths, str]`: a result type that is either an instance
+        of class `StarterPaths` or an error message string.
     """
 
     subdirs = [
@@ -136,12 +147,12 @@ def define_search_tree(
         generated.
 
     Args:
-        `path_dict: dict[str, str]`: A dictionary where the keys are each geography
+        - `path_dict: dict[str, str]`: A dictionary where the keys are each geography
         searched by ALPINE, and the values are the file path corresponding each
         geography's results.
 
     Returns:
-        `Result[dict[str, SearchBranch], str]`: A Result type containing either a
+        - `Result[dict[str, SearchBranch], str]`: A Result type containing either a
         search tree object (`Ok(dict[str, SearchBranch)`) or an error string
         (`Err(str)`)
     """
@@ -168,7 +179,7 @@ def define_search_tree(
     return Ok(search_tree)
 
 
-def get_early_count(path: Optional[str]) -> Optional[int]:
+def _get_early_count(path: Optional[str]) -> Optional[int]:
     """
         The function `get_early_count()` reads a file of statistics from early in
         the pipeline meant to describe the number of input sequences. `get_early_count()`
@@ -176,10 +187,10 @@ def get_early_count(path: Optional[str]) -> Optional[int]:
         can be generated in a vectorized manner.
 
     Args:
-        `path: Optional[str]`: Either a string specifying a path to read from or `None`.
+        - `path: Optional[str]`: Either a string specifying a path to read from or `None`.
 
     Returns:
-        `Optional[int]`: Either an integer specifying the number of input sequences for
+        - `Optional[int]`: Either an integer specifying the number of input sequences for
         a geography, or `None`.
     """
 
@@ -195,7 +206,7 @@ def get_early_count(path: Optional[str]) -> Optional[int]:
     return count
 
 
-def get_late_count(path: Optional[str]) -> Optional[int]:
+def _get_late_count(path: Optional[str]) -> Optional[int]:
     """
         The function `get_late_count` reads a file of statistics from the end of
         the pipeline meant to describe the number of double candidate sequences,
@@ -204,10 +215,10 @@ def get_late_count(path: Optional[str]) -> Optional[int]:
         so that a dataframe of statistics can be generated in a vectorized manner.
 
     Args:
-        `path: Optional[str]`: Either a string specifying a path to read from or `None`.
+        - `path: Optional[str]`: Either a string specifying a path to read from or `None`.
 
     Returns:
-        `Optional[int]`: Either an integer specifying the number of input sequences for
+        - `Optional[int]`: Either an integer specifying the number of input sequences for
         a geography, or `None`.
     """
 
@@ -224,17 +235,17 @@ def get_late_count(path: Optional[str]) -> Optional[int]:
     return count
 
 
-def summarize_anachrons(path: Optional[str]) -> Optional[int]:
+def _summarize_anachrons(path: Optional[str]) -> Optional[int]:
     """
         The function `summarize_anachrons` finds the metadata for anachronistic
         sequences and counts the number of entries, if any, for the provided
         geography and associated filepath.
 
     Args:
-        `path: Optional[str]`: Either a string specifying a path to read from or `None`.
+        - `path: Optional[str]`: Either a string specifying a path to read from or `None`.
 
     Returns:
-        `Optional[int]`: Either an integer specifying the number of input sequences for
+        - `Optional[int]`: Either an integer specifying the number of input sequences for
         a geography, or `None`.
     """
 
@@ -252,17 +263,17 @@ def summarize_anachrons(path: Optional[str]) -> Optional[int]:
     return anachron_df.shape[0]
 
 
-def summarize_highdist(path: Optional[str]) -> Optional[int]:
+def _summarize_highdist(path: Optional[str]) -> Optional[int]:
     """
         The function `summarize_highdist` finds the metadata for high distance
         sequences and counts the number of entries, if any, for the provided
         geography and associated filepath.
 
     Args:
-        `path: Optional[str]`: Either a string specifying a path to read from or `None`.
+        - `path: Optional[str]`: Either a string specifying a path to read from or `None`.
 
     Returns:
-        `Optional[int]`: Either an integer specifying the number of input sequences for
+        - `Optional[int]`: Either an integer specifying the number of input sequences for
         a geography, or `None`.
     """
 
@@ -278,6 +289,60 @@ def summarize_highdist(path: Optional[str]) -> Optional[int]:
 
     # Return the number of rows in the DataFrame
     return anachron_df.shape[0]
+
+
+def stats_pipeline(search_tree: dict[str, SearchBranch]) -> Result[pl.DataFrame, str]:
+    """
+        Function `stats_pipeline` constructs a Polars dataframe progressively by column,
+        where each column displays information about the various categories of results
+        from ALPINE, e.g., anachronistic sequences, high-distance sequences, and
+        sequences that match both criteria. It uses a series of helper functions to read
+        files for each category.
+
+    Args:
+        - `search_tree: dict[str, SearchBranch]`: A dictionary containing each geography
+        as its keys, and a `SearchBranch` dataclass instance specifying the paths to
+        traverse as its values.
+
+    Returns:
+        - `Result[pl.DataFrame, str]`: A result type that is either a Polars data frame
+        or an error message string.
+    """
+
+    # initialize the dataframe
+    stats_df = pl.DataFrame({"Geography": search_tree.keys()})
+
+    # bring in input sequence counts
+    stats_df = stats_df.with_columns(
+        pl.Series(
+            "Input Sequence Count",
+            [_get_early_count(branch.early_stats) for _, branch in search_tree.items()],
+        )
+    )
+
+    # bring in double candidate counts
+    stats_df = stats_df.with_columns(
+        pl.Series(
+            "Double Candidate Count",
+            [_get_late_count(branch.late_stats) for _, branch in search_tree.items()],
+        )
+    )
+
+    # compute a percentage of the total inputs that were flagged as double candidates
+    stats_df = stats_df.with_columns(
+        (
+            (pl.col("Double Candidate Count") / pl.col("Input Sequence Count")) * 100
+        ).alias("Double Candidate Prevalence (%)")
+    )
+
+    # Compute the rate of double candidates in a 1 in X format
+    stats_df = stats_df.with_columns(
+        (
+            pl.lit("1 in ")
+        ).alias("Double Candidate Rate")
+    )
+
+    return Ok(stats_df)
 
 
 def main() -> None:
@@ -302,7 +367,7 @@ def main() -> None:
         args.results_dir
     ), "Provided file path does not exist or is not a directory."
 
-    # construct an initial dictionary of the geographies and top-level
+    # construct an initial dataclass of the geographies and top-level
     # per-geography directories to be searched while handling any errors.
     message_result = construct_file_paths(args.results_dir)
     match message_result:
@@ -314,6 +379,8 @@ def main() -> None:
                      {message}"
             )
 
+    # use the starter paths and recur into subdirectories to map out the
+    # "search tree" of results files
     tree_result = define_search_tree(starter_paths)
     match tree_result:
         case Ok(search_tree):
@@ -324,7 +391,19 @@ def main() -> None:
                      {message}"
             )
 
-    print(f"{search_tree}")
+    # traverse the search tree, reading files as they're found, and summarize
+    # the results in a polars dataframe
+    stats_result = stats_pipeline(search_tree)
+    match stats_result:
+        case Ok(stats_df):
+            pass
+        case Err(message):
+            sys.exit(
+                f"Compiling statistics failed with the following message:\n\
+                     {message}"
+            )
+    stats_df.write_excel("alpine_run_statistics.xlsx", autofit=True)
+
 
 if __name__ == "__main__":
     main()

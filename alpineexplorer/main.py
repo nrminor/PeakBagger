@@ -550,7 +550,7 @@ def main() -> None:
         case Err(message):
             sys.exit(
                 f"Error originated while constructing file paths:\n\
-                     {message}"
+                    {message}"
             )
 
     # use the starter paths and recur into subdirectories to map out the
@@ -562,7 +562,7 @@ def main() -> None:
         case Err(message):
             sys.exit(
                 f"Unable to search through provided results directories:\n\
-                     {message}"
+                    {message}"
             )
 
     # traverse the search tree, reading files as they're found, and summarize
@@ -574,7 +574,7 @@ def main() -> None:
         case Err(message):
             sys.exit(
                 f"Compiling statistics failed with the following message:\n\
-                     {message}"
+                    {message}"
             )
     stats_df.write_excel("alpine_run_statistics.xlsx", autofit=True)
 
@@ -588,8 +588,11 @@ def main() -> None:
         case Err(message):
             sys.exit(
                 f"Error encountered while compiling metadata for candidates:\n\
-                     {message}"
+                    {message}"
             )
+    
+    # Count the number of candidates for the full date range of the dataset
+    
 
 
 if __name__ == "__main__":

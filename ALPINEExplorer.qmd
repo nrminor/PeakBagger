@@ -31,7 +31,6 @@ First, we make sure the packages required by this repo are installed and the cor
 
 ```{python}
 !poetry install
-import alpineexplorer
 ```
 
 Next, let's load some of the libraries we may use in our explorations (all of which are listed and versioned in `pyproject.toml`). These are only available because Poetry handled the installations above.
@@ -42,49 +41,143 @@ import sys
 import glob
 from result import Result, Ok, Err
 import polars as pl
-import matplotlib
-import seaborn
+import matplotlib.pyplot as plt
+import seaborn as sns
 import scipy
 import numpy
+import pandas
+import geopandas as gpd
+import alpineexplorer.main as ae
 ```
 
-You'll notice we load a module called `ALPINEExplorer`; this is only available because we activated the environment in this directory, where there is, in fact, a project, source code and all, named "ALPINEExplorer". You could not access this module outside the current working directory unless you specified back to this directory in `Pkg.activate()`.
+You'll notice we load a module called `ALPINEExplorer`; this is only available because we activated the environment in this directory, where there is, in fact, a module named "ALPINEExplorer". You could not access this module outside the current working directory unless you specified back to this directory's environment with Poetry.
 
-Next, let's specify a variable for the path to our results (be sure to change this to wherever the results are located on your machine!):
+Next, let's specify a constant for the path to our results (be sure to change this to wherever the results are located on your machine!). We'll also use an assert statement to double check that the provided path actually exists and is a directory.
 
 ```{python}
-RESULTS_DIR="/path/to/results"
+RESULTS_DIR="/Volumes/nrm_t7_1/29267/aggregated_results"
+assert os.path.exists(RESULTS_DIR) and os.path.isdir(
+        RESULTS_DIR
+    ), "Provided file path does not exist or is not a directory."
 ```
 
-You'll notice this is a fancier-than-usual variable. By specifying that it is a constant and providing a data-type (`String`), we're telling the Julia compiler that it doesn't need to double check it every time it comes up downstream. The net result is that it runs much faster.
-
-Next, let's compile a table of mutations to look at and generate some visualizations. First, we generate a dictionary of subdirectory paths, which will be traversed downstream. I use the Julia `ErrorTypes.jl` package here to handle this potentially error-prone process in a Rust-like way. Here, this means that the function `construct_file_paths` will either return a successful dictionary result or an error. The macro `@?` unraps this result, exposing either the error, or the successful dictionary.
+Next, let's compile a table of mutations to look at and generate some visualizations. First, we generate a dictionary of subdirectory paths, which will be traversed downstream. I use the Python `result` module along with structural pattern matching in the module, but here, let's just unwrap the results.
 
 ```{python}
+starter_paths = ae.construct_file_paths(RESULTS_DIR).unwrap()
+```
+
+If you'd to see what the starter paths look like, uncomment the following and run it.
+
+```{python}
+# starter_paths
 ```
 
 Now, let's take that dictionary and turn it into a true "tree" of directories to traverse. This tree is itself a dictionary, where the keys are all the geographies ALPINE searched, and the values are a data structure listing all the relevant subdirectories for that geography.
 
 ```{python}
+search_tree = ae.define_search_tree(starter_paths).unwrap()
+```
+
+```{python}
+# search_tree
 ```
 
 Let's now take that search tree and actually use it to search:
 
 ```{python}
+stats_df = ae.stats_pipeline(search_tree).unwrap()
 ```
 
-Like before, we use error types to handle errors. You'll notice that function compiled all the relevant stats for each geography, wrote them to an excel file, and also returned the data frame itself so we can continue to look at it.
+You'll notice that function compiled all the relevant stats for each geography and returned a data frame so we can continue to look at it. Before we proceed, let's save the stats dataframe to an Excel file:
 
-Before we start looking deeper at the data with some stats and visualizations, let's use the search tree to compile databases of metadata for each kind of candidate, which we can then group by geography and query as needed. To do this, we'll blend reading and writing of the files with a conversion to the more efficient Arrow format, which we can then read again later. To do so, we just run the following function on the search tree. The function will return file paths to each database, which we'll have on hand later.
 ```{python}
+stats_df.write_excel("alpine_run_statistics.xlsx", autofit=True)
 ```
 
-To stay organized, let's add these files to our `DataToolkit` file called `Data.toml`, along with instructions on how to load it:
+
+
+Next, let's use the search tree to compile databases of metadata for each kind of candidate, which we can then group by geography and query as needed. To do this, we'll blend reading and writing of the files with a conversion to the more efficient Arrow format, which we can then read again later. To do so, we just run the following function on the search tree. The function will return [Polars LazyFrames](https://pola-rs.github.io/polars/py-polars/html/reference/lazyframe/index.html) that we can query later.
+
 ```{python}
+meta_results = ae.compile_metadata(search_tree).unwrap()
+anachron_meta = meta_results.anachron
+highdist_meta = meta_results.highdist
+double_meta = meta_results.double
+```
+
+```{python}
+double_meta.columns
 ```
 
 ### Basic Visualizations
-We'll start where most exploratory data analyses start: with a histogram.
-```{python}
+We'll start where most exploratory data analyses start: with a histogram. We'll start with the prevalences of some of the ALPINE candidates.
 
+```{python}
+sns.set_theme()
+sns.set_style("ticks")
+sns.color_palette()
 ```
+
+```{python}
+sns.displot(stats_df.to_pandas(), x="Double Candidate Prevalence (%)", kde=True)
+```
+
+```{python}
+sns.displot(stats_df.to_pandas(), x="Anachronistic Prevalence (%)", kde=True)
+```
+
+```{python}
+sns.displot(stats_df.to_pandas(), x="High Distance Prevalence (%)", kde=True)
+```
+
+### Prevalence through time
+Next, let's look at the prevalence of candidates through time for each state. To do so, we'll group our handy metadata tables by date and count the number of sequences with a Polars expression.
+
+```{python}
+counts_by_date = double_meta.group_by(["Isolate Collection date", "Geography"]).agg(pl.col("Accession").count()).collect()
+```
+
+We'll also need to parse the provided dates as date objects. While doing that, I'm also going to rename columns for convenience.
+
+```{python}
+counts_by_date = counts_by_date.with_columns(
+    pl.col("Isolate Collection date").str.strptime(pl.Date, format="%Y-%m-%d").alias("Date")
+).rename(
+    {"Accession": "Double Candidate Count",
+    "Isolate Collection date": "Date string"}
+)
+counts_by_date
+```
+
+With that, let's plot them with a so-called ridge plot:
+
+```{python}
+# Initialize the FacetGrid object
+pal = sns.cubehelix_palette(10, rot=-.25, light=.7)
+g = sns.FacetGrid(counts_by_date.to_pandas(), row="Geography", hue="Geography", aspect=15, height=.5, palette=pal)
+# Draw the densities in a few steps
+g.map(sns.barplot, x="Date", y="Double Candidate Count", data=counts_by_date.to_pandas(),
+    clip_on=False, fill=True, alpha=1)
+g.map(sns.barplot, x="Date", y="Double Candidate Count", data=counts_by_date.to_pandas(),
+    clip_on=False, color="w")
+# passing color=None to refline() uses the hue mapping
+g.refline(y=0, linewidth=2, linestyle="-", color=None, clip_on=False)
+```
+
+```{python}
+sns.lineplot(x="Date", y="Double Candidate Count", hue="Geography", data=counts_by_date)
+```
+
+### Mapping Prevalences in the U.S.
+
+```{python}
+!wget.download("https://www2.census.gov/geo/tiger/GENZ2018/shp/cb_2018_us_state_500k.zip")
+gdf = gpd.read_file(os.getcwd()+'/cb_2018_us_state_500k')
+gdf = gdf.merge(stats_df.to_pandas(),left_on='STUSPS',right_on='Geography')
+```
+
+```{python}
+gdf.to_crs({'init':'epsg:2163'})
+```
+
